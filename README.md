@@ -9,6 +9,18 @@ Juego táctico de mazmorras y colocación de dados inspirado en el galardonado j
 
 ---
 
+## 📸 Capturas de Pantalla
+
+<div align="center">
+  <img src="docs/screenshots/screenshot_title.png" width="180" alt="Pantalla de Título" />
+  <img src="docs/screenshots/screenshot_hero_select.png" width="180" alt="Selección de Héroe" />
+  <img src="docs/screenshots/screenshot_doors.png" width="180" alt="Exploración de Puertas" />
+  <img src="docs/screenshots/screenshot_combat.png" width="180" alt="Combate y Fusión de Dados" />
+  <img src="docs/screenshots/screenshot_loot.png" width="180" alt="Fase de Botín" />
+</div>
+
+---
+
 ## 🎮 Mecánicas y Flujo de Juego
 
 ### 1. Elige tu Héroe
@@ -22,12 +34,17 @@ Juego táctico de mazmorras y colocación de dados inspirado en el galardonado j
 
 ### 3. Combate por Colocación de Dados
 1. Pulsa **`TIRAR DADOS`** para lanzar tu reserva según tus atributos.
-2. **Colocación táctica con Stylus:**
+2. **Fusión Táctica de Dados (Mecánica One Deck Dungeon):**
+   - Toca dos dados del mismo color en tu bandeja (🟡+🟡, 🟢+🟢 o 🔵+🔵).
+   - Ambos dados se iluminarán con un marco dorado y aparecerá el botón **`FUSIONAR > [X]`** en la cabecera.
+   - Púlsalo para combinarlos en un único **dado negro comodín (Heroico ⚫)** con el valor del más bajo (`min(d1, d2)`).
+   - Los dados heroicos negros pueden colocarse en cualquier casilla de desafío independientemente del color requerido.
+3. **Colocación táctica con Stylus:**
    - Toca un dado disponible en tu bandeja (se iluminará en blanco/dorado).
-   - Toca una casilla de la carta de monstruo que coincida en color y tenga un valor igual o menor que tu dado.
+   - Toca una casilla de la carta de monstruo que coincida en color (o usa un dado negro) y tenga un valor igual o menor que tu dado.
    - Si te equivocas, ¡toca la casilla para devolver el dado a tu bandeja!
    - Usa el botón **`AUTO`** para una asignación óptima inteligente de un solo toque.
-3. Pulsa **`RESOLVER`** para cerrar la ronda:
+4. Pulsa **`RESOLVER`** para cerrar la ronda:
    - Las casillas que no hayas logrado tapar te infligen daño directo al corazón (💔).
 
 ### 4. Botín Multifunción (Looting)
