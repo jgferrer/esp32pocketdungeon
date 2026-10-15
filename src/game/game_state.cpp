@@ -13,6 +13,7 @@ void GameStateManager::init() {
     total_encounters_cleared = 0;
     score = 0;
     selected_die_idx = -1;
+    selected_die2_idx = -1;
     dice_rolled = false;
     combat_resolved = false;
     dice_count = 0;
@@ -72,6 +73,7 @@ void GameStateManager::enter_next_encounter() {
     dice_rolled = false;
     combat_resolved = false;
     selected_die_idx = -1;
+    selected_die2_idx = -1;
     hero.skill_used = false;
 
     state = STATE_COMBAT;
@@ -103,19 +105,100 @@ void GameStateManager::roll_dice() {
 
     dice_rolled = true;
     selected_die_idx = -1;
+    selected_die2_idx = -1;
     buzzer_dice_roll();
 }
 
 bool GameStateManager::select_die(int8_t idx) {
     if (idx < 0 || idx >= dice_count) {
         selected_die_idx = -1;
+        selected_die2_idx = -1;
         return false;
     }
     if (dice[idx].placed || !dice[idx].active) {
         return false;
     }
+
+    // Si no había ningún dado seleccionado:
+    if (selected_die_idx < 0) {
+        selected_die_idx = idx;
+        selected_die2_idx = -1;
+        buzzer_click();
+        return true;
+    }
+
+    // Si se vuelve a tocar el primer dado seleccionado:
+    if (selected_die_idx == idx) {
+        if (selected_die2_idx >= 0) {
+            selected_die_idx = selected_die2_idx;
+            selected_die2_idx = -1;
+        } else {
+            selected_die_idx = -1;
+        }
+        buzzer_click();
+        return true;
+    }
+
+    // Si se vuelve a tocar el segundo dado seleccionado:
+    if (selected_die2_idx == idx) {
+        selected_die2_idx = -1;
+        buzzer_click();
+        return true;
+    }
+
+    // Se toca otro dado: si coincide en color y no es heroico, seleccionamos ambos para combinar
+    if (dice[idx].type == dice[selected_die_idx].type && dice[idx].type != DICE_HEROIC) {
+        selected_die2_idx = idx;
+        buzzer_click();
+        return true;
+    }
+
+    // Color distinto o dado heroico: cambiamos la selección al nuevo dado
     selected_die_idx = idx;
+    selected_die2_idx = -1;
     buzzer_click();
+    return true;
+}
+
+bool GameStateManager::combine_dice() {
+    if (selected_die_idx < 0 || selected_die2_idx < 0) return false;
+    if (selected_die_idx >= dice_count || selected_die2_idx >= dice_count) return false;
+    if (selected_die_idx == selected_die2_idx) return false;
+
+    Die& d1 = dice[selected_die_idx];
+    Die& d2 = dice[selected_die2_idx];
+
+    if (d1.placed || !d1.active || d2.placed || !d2.active) return false;
+    if (d1.type != d2.type || d1.type == DICE_HEROIC) return false;
+
+    uint8_t idx1 = (selected_die_idx < selected_die2_idx) ? selected_die_idx : selected_die2_idx;
+    uint8_t idx2 = (selected_die_idx < selected_die2_idx) ? selected_die2_idx : selected_die_idx;
+
+    uint8_t min_val = (dice[idx1].value < dice[idx2].value) ? dice[idx1].value : dice[idx2].value;
+
+    // Convertir el primer dado en heroico con el menor valor
+    dice[idx1].type = DICE_HEROIC;
+    dice[idx1].value = min_val;
+    dice[idx1].placed = false;
+    dice[idx1].active = true;
+
+    // Eliminar el segundo dado desplazando los restantes
+    for (uint8_t i = idx2; i < dice_count - 1; i++) {
+        dice[i] = dice[i + 1];
+    }
+    dice_count--;
+
+    // Actualizar índices de dados colocados en las casillas
+    for (uint8_t b = 0; b < current_encounter.box_count; b++) {
+        if (current_encounter.boxes[b].filled && current_encounter.boxes[b].placed_die_idx > idx2) {
+            current_encounter.boxes[b].placed_die_idx--;
+        }
+    }
+
+    selected_die_idx = idx1;
+    selected_die2_idx = -1;
+
+    buzzer_skill();
     return true;
 }
 
@@ -135,13 +218,31 @@ bool GameStateManager::place_selected_die_on_box(uint8_t box_idx) {
         b.filled = true;
         b.placed_die_idx = selected_die_idx;
         d.placed = true;
-        selected_die_idx = -1;
+        if (selected_die2_idx >= 0) {
+            selected_die_idx = selected_die2_idx;
+            selected_die2_idx = -1;
+        } else {
+            selected_die_idx = -1;
+        }
         buzzer_dice_place();
         return true;
-    } else {
-        buzzer_damage();
-        return false;
+    } else if (selected_die2_idx >= 0 && selected_die2_idx < dice_count) {
+        // Si el primero no cupo pero hay un segundo seleccionado, probar con el segundo
+        Die& d2 = dice[selected_die2_idx];
+        bool color2_ok = (d2.type == DICE_HEROIC || b.req_type == DICE_HEROIC || d2.type == b.req_type);
+        bool value2_ok = (d2.value >= b.min_value);
+        if (color2_ok && value2_ok) {
+            b.filled = true;
+            b.placed_die_idx = selected_die2_idx;
+            d2.placed = true;
+            selected_die2_idx = -1;
+            buzzer_dice_place();
+            return true;
+        }
     }
+
+    buzzer_damage();
+    return false;
 }
 
 bool GameStateManager::remove_die_from_box(uint8_t box_idx) {
@@ -187,6 +288,7 @@ void GameStateManager::auto_assign_dice() {
         }
     }
     selected_die_idx = -1;
+    selected_die2_idx = -1;
     buzzer_dice_place();
 }
 
@@ -206,6 +308,8 @@ void GameStateManager::use_skill() {
         if (target >= 0) {
             dice[target].value = (dice[target].value + 2 > 6) ? 6 : (dice[target].value + 2);
             hero.skill_used = true;
+            selected_die_idx = -1;
+            selected_die2_idx = -1;
             buzzer_skill();
         }
     } else if (hero.hero_class == HERO_ROGUE) {
@@ -214,6 +318,8 @@ void GameStateManager::use_skill() {
             if (!dice[i].placed && dice[i].type == DICE_GREEN) {
                 dice[i].type = DICE_HEROIC;
                 hero.skill_used = true;
+                selected_die_idx = -1;
+                selected_die2_idx = -1;
                 buzzer_skill();
                 break;
             }
@@ -232,6 +338,8 @@ void GameStateManager::use_skill() {
             dice[target].type = DICE_HEROIC;
             dice[target].value = 6;
             hero.skill_used = true;
+            selected_die_idx = -1;
+            selected_die2_idx = -1;
             buzzer_skill();
         }
     }
@@ -373,6 +481,14 @@ void GameStateManager::handle_touch(int16_t tx, int16_t ty) {
     // COMBATE
     // -------------------------------------------------------------
     if (state == STATE_COMBAT) {
+        // 0. Botón FUSIONAR en la cabecera de la bandeja
+        if (dice_rolled && selected_die_idx >= 0 && selected_die2_idx >= 0) {
+            if (tx >= 115 && tx <= 235 && ty >= 175 && ty <= 198) {
+                combine_dice();
+                return;
+            }
+        }
+
         // 1. Tocar casillas de la carta (Y = 100 a 170)
         if (ty >= 95 && ty <= 170) {
             uint8_t count = current_encounter.box_count;
@@ -392,13 +508,13 @@ void GameStateManager::handle_touch(int16_t tx, int16_t ty) {
             }
         }
 
-        // 2. Tocar dados en la bandeja (Y = 185 a 250)
-        if (dice_rolled && ty >= 180 && ty <= 250) {
+        // 2. Tocar dados en la bandeja (Y = 197 a 265)
+        if (dice_rolled && ty >= 197 && ty <= 265) {
             int16_t die_w = 32;
             int16_t start_x = 12;
             for (uint8_t d = 0; d < dice_count; d++) {
                 int16_t dx = start_x + (d % 6) * 37;
-                int16_t dy = 188 + (d / 6) * 35;
+                int16_t dy = 198 + (d / 6) * 32;
                 if (tx >= dx && tx <= dx + die_w && ty >= dy && ty <= dy + die_w) {
                     select_die(d);
                     return;

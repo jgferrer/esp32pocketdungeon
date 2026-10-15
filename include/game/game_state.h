@@ -20,6 +20,7 @@ public:
     Die dice[MAX_DICE];
     uint8_t dice_count;
     int8_t selected_die_idx;          // Dado seleccionado actualmente (-1 si ninguno)
+    int8_t selected_die2_idx;         // Segundo dado seleccionado para combinación (-1 si ninguno)
     bool dice_rolled;
     bool combat_resolved;
     uint32_t end_state_time_ms;       // Debounce para fin de partida
@@ -31,6 +32,7 @@ public:
     void roll_dice();
 
     bool select_die(int8_t idx);
+    bool combine_dice();
     bool place_selected_die_on_box(uint8_t box_idx);
     bool remove_die_from_box(uint8_t box_idx);
     void auto_assign_dice();
