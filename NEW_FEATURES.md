@@ -1,0 +1,1 @@
+Permitir el uso de varios dados en algunas casillas, por ejemplo, para rellenar una casilla de 6 poder usar dos dados del mismo color que sumen 6. Tal y como es en One Deck Dungeon
